@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RichardStyles\WireCloak;
 
 use Illuminate\Routing\Router;
+use RichardStyles\WireCloak\Commands\ObfuscateCommand;
 use RichardStyles\WireCloak\Http\Middleware\CloakLivewireFingerprints;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
@@ -15,7 +16,8 @@ class WireCloakServiceProvider extends PackageServiceProvider
     {
         $package
             ->name('wire-cloak')
-            ->hasConfigFile();
+            ->hasConfigFile()
+            ->hasCommand(ObfuscateCommand::class);
     }
 
     public function packageBooted(): void

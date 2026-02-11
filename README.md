@@ -55,14 +55,33 @@ These markers are required for Livewire to function and cannot be safely removed
 - `wire:snapshot` / `wire:effects` / `wire:id` — Core component state attributes
 - CSS selectors (`[wire\:loading]`, etc.) — Required for loading states and error dialogs
 
-## Source Maps
+## Asset Obfuscation
 
-Livewire serves `.js.map` files that expose the full internal file structure. These are static files served outside the middleware pipeline, so Wire Cloak cannot intercept them. Block them at your web server instead:
+The response middleware handles HTML output, but Livewire's JavaScript files contain additional fingerprinting markers — source map references, `.map` files exposing internal structure, and a deterministic manifest hash that maps to specific versions.
+
+The `wire-cloak:obfuscate` command publishes Livewire's static assets and scrubs them:
+
+```bash
+php artisan wire-cloak:obfuscate
+```
+
+This will:
+
+1. **Publish Livewire assets** to `public/vendor/livewire/` if not already present
+2. **Delete `.map` files** — source maps expose 60+ internal file paths
+3. **Strip `//# sourceMappingURL`** references from JS files
+4. **Randomise the manifest hash** — replaces the deterministic build hash with a random value
+
+Once published, Livewire automatically serves the scrubbed copies instead of the originals. Run the command after each `composer update` that bumps Livewire.
+
+### Source maps on unpublished assets
+
+By default Livewire serves JS and source maps via PHP routes from `vendor/`. The response middleware already strips the `?id=` hash from HTML, but the source map files themselves are served outside the middleware pipeline. If you don't want to publish assets, block maps at your web server instead:
 
 **Nginx:**
 
 ```nginx
-location ~* /vendor/livewire/.*\.js\.map$ {
+location ~* livewire.*\.js\.map$ {
     return 404;
 }
 ```
