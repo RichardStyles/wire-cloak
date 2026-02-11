@@ -38,6 +38,7 @@ Wire Cloak registers a single response middleware (`CloakLivewireFingerprints`) 
 | Build hash | `?id=cfc5c1ae` on script src | `strip_build_hash` |
 | Component names | `wire:name="counter"` | `strip_wire_name` |
 | Console warnings | `console.warn('Livewire: ...')` | `strip_console_warnings` |
+| Script config | `window.livewireScriptConfig` | `script_config_alias` |
 
 ### Why these are safe to remove
 
@@ -45,12 +46,12 @@ Wire Cloak registers a single response middleware (`CloakLivewireFingerprints`) 
 - **Build hash** — The `?id=` parameter is derived from Livewire's `dist/manifest.json` and is deterministic per release. Scanners maintain lookup tables mapping hashes to versions. Removing it affects browser caching but not functionality.
 - **`wire:name`** — Leaks component class names (e.g. `pages.settings.profile`) but is not read by Livewire's JavaScript runtime — it uses `wire:id` for component identification.
 - **Console warnings** — Informational messages about published assets being out of date.
+- **`window.livewireScriptConfig`** — Renamed to a short alias (default `_wc`) in both the HTML output and the published JS files. The middleware renames it in the HTML response, and the `wire-cloak:obfuscate` command applies the same rename to the published JS so both sides match. Set `script_config_alias` to `null` to disable.
 
 ### What is NOT stripped
 
 These markers are required for Livewire to function and cannot be safely removed:
 
-- `window.livewireScriptConfig` — The JS hardcodes this variable name
 - `data-update-uri` / `data-module-url` — Script tag attributes the JS reads for endpoint discovery
 - `wire:snapshot` / `wire:effects` / `wire:id` — Core component state attributes
 - CSS selectors (`[wire\:loading]`, etc.) — Required for loading states and error dialogs
@@ -70,7 +71,8 @@ This will:
 1. **Publish Livewire assets** to `public/vendor/livewire/` if not already present
 2. **Delete `.map` files** — source maps expose 60+ internal file paths
 3. **Strip `//# sourceMappingURL`** references from JS files
-4. **Randomise the manifest hash** — replaces the deterministic build hash with a random value
+4. **Rename `livewireScriptConfig`** in JS files to match the configured `script_config_alias`
+5. **Randomise the manifest hash** — replaces the deterministic build hash with a random value
 
 Once published, Livewire automatically serves the scrubbed copies instead of the originals. Run the command after each `composer update` that bumps Livewire.
 
@@ -103,6 +105,7 @@ return [
     'strip_build_hash' => true,       // ?id=XXXXXXXX from script src
     'strip_wire_name' => true,        // wire:name="..." attributes
     'strip_console_warnings' => true, // console.warn('Livewire: ...')
+    'script_config_alias' => '_wc',   // Rename window.livewireScriptConfig (null to disable)
 ];
 ```
 

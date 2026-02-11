@@ -85,6 +85,57 @@ test('randomises the manifest hash', function () {
         ->toMatch('/^[a-f0-9]{8}$/');
 });
 
+test('renames livewireScriptConfig in js files', function () {
+    $this->artisan('livewire:publish', ['--assets' => true]);
+
+    // Confirm the original string exists before obfuscation.
+    $jsFiles = File::glob($this->assetPath.'/*.js');
+    $hadOriginal = false;
+
+    foreach ($jsFiles as $file) {
+        if (str_contains(File::get($file), 'livewireScriptConfig')) {
+            $hadOriginal = true;
+
+            break;
+        }
+    }
+
+    expect($hadOriginal)->toBeTrue();
+
+    $this->artisan('wire-cloak:obfuscate')
+        ->assertSuccessful();
+
+    // No JS file should contain the original name.
+    foreach (File::glob($this->assetPath.'/*.js') as $file) {
+        $content = File::get($file);
+        expect($content)->not->toContain('livewireScriptConfig');
+        expect($content)->toContain('_wc');
+    }
+});
+
+test('skips script config rename when alias is null', function () {
+    config(['wire-cloak.script_config_alias' => null]);
+
+    $this->artisan('livewire:publish', ['--assets' => true]);
+
+    $this->artisan('wire-cloak:obfuscate')
+        ->assertSuccessful();
+
+    // Original name should still be present.
+    $jsFiles = File::glob($this->assetPath.'/*.js');
+    $hasOriginal = false;
+
+    foreach ($jsFiles as $file) {
+        if (str_contains(File::get($file), 'livewireScriptConfig')) {
+            $hasOriginal = true;
+
+            break;
+        }
+    }
+
+    expect($hasOriginal)->toBeTrue();
+});
+
 test('is idempotent', function () {
     $this->artisan('wire-cloak:obfuscate')->assertSuccessful();
     $this->artisan('wire-cloak:obfuscate')->assertSuccessful();

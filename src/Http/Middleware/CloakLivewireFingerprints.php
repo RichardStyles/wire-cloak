@@ -53,6 +53,12 @@ class CloakLivewireFingerprints
             $content = $this->stripConsoleWarnings($content);
         }
 
+        $alias = config('wire-cloak.script_config_alias');
+
+        if (is_string($alias) && $alias !== '') {
+            $content = $this->renameScriptConfig($content, $alias);
+        }
+
         $response->setContent($content);
 
         $response->headers->remove('Content-Length');

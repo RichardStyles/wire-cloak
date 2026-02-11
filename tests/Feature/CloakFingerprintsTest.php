@@ -12,6 +12,7 @@ beforeEach(function () {
             .'<style>[wire\:loading]{display:none;}</style>'
             .'<!-- Livewire Scripts -->'
             .'<script src="/livewire-abcd1234/livewire.min.js?id=cfc5c1ae" data-csrf="token" data-module-url="/livewire-abcd1234" data-update-uri="/livewire-abcd1234/update"></script>'
+            .'<script data-navigate-once="true">window.livewireScriptConfig = {"csrf":"token","uri":"/livewire-abcd1234/update"};</script>'
             .'<script>
                 console.warn(\'Livewire: The published Livewire assets are out of date\n See: https://livewire.laravel.com/docs/installation\')
             </script>'
@@ -68,12 +69,31 @@ test('preserves functional attributes', function () {
         ->toContain('wire:effects=');
 });
 
+test('renames livewireScriptConfig to configured alias', function () {
+    $response = $this->get('/test-page');
+
+    $content = $response->getContent();
+    expect($content)
+        ->toContain('window._wc =')
+        ->not->toContain('window.livewireScriptConfig');
+});
+
+test('does not rename livewireScriptConfig when alias is null', function () {
+    config(['wire-cloak.script_config_alias' => null]);
+
+    $response = $this->get('/test-page');
+
+    $content = $response->getContent();
+    expect($content)->toContain('window.livewireScriptConfig');
+});
+
 test('does nothing when all features disabled', function () {
     config([
         'wire-cloak.strip_html_comments' => false,
         'wire-cloak.strip_build_hash' => false,
         'wire-cloak.strip_wire_name' => false,
         'wire-cloak.strip_console_warnings' => false,
+        'wire-cloak.script_config_alias' => null,
     ]);
 
     $response = $this->get('/test-page');
@@ -82,7 +102,8 @@ test('does nothing when all features disabled', function () {
     expect($content)
         ->toContain('<!-- Livewire Scripts -->')
         ->toContain('?id=cfc5c1ae')
-        ->toContain('wire:name="counter"');
+        ->toContain('wire:name="counter"')
+        ->toContain('window.livewireScriptConfig');
 });
 
 test('individual config toggles work independently', function () {

@@ -67,4 +67,19 @@ return [
 
     'strip_console_warnings' => true,
 
+    /*
+    |--------------------------------------------------------------------------
+    | Rename Script Config Variable
+    |--------------------------------------------------------------------------
+    |
+    | Rename window.livewireScriptConfig to a shorter, non-descriptive alias
+    | in the HTML response. The obfuscate command applies the same rename to
+    | the published JS files so both sides match.
+    |
+    | Set to null to disable renaming.
+    |
+    */
+
+    'script_config_alias' => '_wc',
+
 ];

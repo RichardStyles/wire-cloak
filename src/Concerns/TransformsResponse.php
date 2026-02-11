@@ -65,4 +65,15 @@ trait TransformsResponse
             $html,
         );
     }
+
+    /**
+     * Rename window.livewireScriptConfig to a non-descriptive alias.
+     *
+     * The obfuscate command applies the same rename to the published
+     * JS files, so both the HTML injection and JS reader match.
+     */
+    protected function renameScriptConfig(string $html, string $alias): string
+    {
+        return str_replace('window.livewireScriptConfig', 'window.'.$alias, $html);
+    }
 }

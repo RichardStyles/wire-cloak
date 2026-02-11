@@ -10,6 +10,7 @@ beforeEach(function () {
             '<!DOCTYPE html><html><head></head><body>'
             .'<!-- Livewire Scripts -->'
             .'<script src="/livewire-abcd1234/livewire.min.js?id=cfc5c1ae"></script>'
+            .'<script data-navigate-once="true">window.livewireScriptConfig = {"csrf":"token"};</script>'
             .'<div wire:id="abc123" wire:name="counter">Count: 0</div>'
             .'</body></html>',
             200,
@@ -27,5 +28,6 @@ test('globally disabled wire-cloak passes html through unchanged', function () {
     expect($content)
         ->toContain('<!-- Livewire Scripts -->')
         ->toContain('?id=cfc5c1ae')
-        ->toContain('wire:name="counter"');
+        ->toContain('wire:name="counter"')
+        ->toContain('window.livewireScriptConfig');
 });

@@ -30,6 +30,7 @@ class ObfuscateCommand extends Command
 
         $this->deleteSourceMaps($assetPath);
         $this->stripSourceMapReferences($assetPath);
+        $this->renameScriptConfig($assetPath);
         $this->randomiseManifestHash($assetPath);
 
         $this->newLine();
@@ -87,6 +88,35 @@ class ObfuscateCommand extends Command
         }
 
         $this->components->twoColumnDetail('Source map references', $stripped.' stripped from JS files');
+    }
+
+    private function renameScriptConfig(string $assetPath): void
+    {
+        /** @var string|null $alias */
+        $alias = config('wire-cloak.script_config_alias');
+
+        if (! is_string($alias) || $alias === '') {
+            $this->components->twoColumnDetail('Script config rename', 'Disabled');
+
+            return;
+        }
+
+        /** @var list<string> $jsFiles */
+        $jsFiles = File::glob($assetPath.'/*.js');
+
+        $renamed = 0;
+
+        foreach ($jsFiles as $file) {
+            $content = File::get($file);
+            $updated = str_replace('livewireScriptConfig', $alias, $content);
+
+            if ($updated !== $content) {
+                File::put($file, $updated);
+                $renamed++;
+            }
+        }
+
+        $this->components->twoColumnDetail('Script config rename', $renamed.' JS files updated → window.'.$alias);
     }
 
     private function randomiseManifestHash(string $assetPath): void
