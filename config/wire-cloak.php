@@ -67,22 +67,4 @@ return [
 
     'strip_console_warnings' => true,
 
-    /*
-    |--------------------------------------------------------------------------
-    | Block Source Maps
-    |--------------------------------------------------------------------------
-    |
-    | Return 404 for requests to Livewire .js.map files served via PHP
-    | routes (the default). Source maps are only used by browser DevTools
-    | for debugging and expose the full internal Livewire file structure.
-    |
-    | Note: If you have published Livewire assets (artisan vendor:publish
-    | --tag=livewire:assets), the .map files in public/vendor/livewire/
-    | are served directly by your web server and bypass PHP entirely.
-    | Delete them manually or exclude them in your web server config.
-    |
-    */
-
-    'block_source_maps' => env('WIRE_CLOAK_BLOCK_MAPS', true),
-
 ];

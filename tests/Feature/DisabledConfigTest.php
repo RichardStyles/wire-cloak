@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
-use Livewire\Mechanisms\HandleRequests\EndpointResolver;
 
 beforeEach(function () {
     Route::get('/test-page', function () {
@@ -29,14 +28,4 @@ test('globally disabled wire-cloak passes html through unchanged', function () {
         ->toContain('<!-- Livewire Scripts -->')
         ->toContain('?id=cfc5c1ae')
         ->toContain('wire:name="counter"');
-});
-
-test('globally disabled wire-cloak passes source maps through', function () {
-    config(['wire-cloak.enabled' => false]);
-
-    $mapPath = EndpointResolver::mapPath(csp: false);
-
-    $response = $this->get($mapPath);
-
-    expect($response->getStatusCode())->not->toBe(404);
 });
