@@ -82,4 +82,41 @@ return [
 
     'script_config_alias' => '_wc',
 
+    /*
+    |--------------------------------------------------------------------------
+    | Rename Data Attributes
+    |--------------------------------------------------------------------------
+    |
+    | Livewire's script tag uses data-csrf, data-update-uri, data-module-url,
+    | and data-no-progress-bar for endpoint discovery. These are identifiable
+    | markers. Set a short prefix to rename them (e.g. "data-csrf" becomes
+    | "data-wc-csrf"). The obfuscate command applies the same rename to
+    | published JS files.
+    |
+    | Set to null to disable renaming.
+    |
+    */
+
+    'data_attribute_prefix' => 'wc',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Rename wire: Attribute Prefix
+    |--------------------------------------------------------------------------
+    |
+    | Every Livewire directive uses the "wire:" attribute prefix (wire:id,
+    | wire:snapshot, wire:click, wire:model, etc.). Scanners pattern-match
+    | on this prefix. Renaming it to a short alias (e.g. "wc:") changes
+    | all wire: attributes in the HTML and the corresponding JS selectors
+    | in published assets.
+    |
+    | The inline CSS selectors emitted by Livewire's @livewireStyles are
+    | also updated by the middleware.
+    |
+    | Set to null to disable renaming.
+    |
+    */
+
+    'wire_prefix_alias' => 'wc',
+
 ];

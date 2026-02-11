@@ -31,6 +31,8 @@ class ObfuscateCommand extends Command
         $this->deleteSourceMaps($assetPath);
         $this->stripSourceMapReferences($assetPath);
         $this->renameScriptConfig($assetPath);
+        $this->renameDataAttributes($assetPath);
+        $this->renameWirePrefix($assetPath);
         $this->randomiseManifestHash($assetPath);
 
         $this->newLine();
@@ -117,6 +119,71 @@ class ObfuscateCommand extends Command
         }
 
         $this->components->twoColumnDetail('Script config rename', $renamed.' JS files updated → window.'.$alias);
+    }
+
+    private function renameDataAttributes(string $assetPath): void
+    {
+        /** @var string|null $prefix */
+        $prefix = config('wire-cloak.data_attribute_prefix');
+
+        if (! is_string($prefix) || $prefix === '') {
+            $this->components->twoColumnDetail('Data attribute rename', 'Disabled');
+
+            return;
+        }
+
+        $search = ['data-csrf', 'data-update-uri', 'data-module-url', 'data-no-progress-bar'];
+        $replace = ["data-{$prefix}-csrf", "data-{$prefix}-update-uri", "data-{$prefix}-module-url", "data-{$prefix}-no-progress-bar"];
+
+        /** @var list<string> $jsFiles */
+        $jsFiles = File::glob($assetPath.'/*.js');
+
+        $renamed = 0;
+
+        foreach ($jsFiles as $file) {
+            $content = File::get($file);
+            $updated = str_replace($search, $replace, $content);
+
+            if ($updated !== $content) {
+                File::put($file, $updated);
+                $renamed++;
+            }
+        }
+
+        $this->components->twoColumnDetail('Data attribute rename', $renamed.' JS files updated → data-'.$prefix.'-*');
+    }
+
+    private function renameWirePrefix(string $assetPath): void
+    {
+        /** @var string|null $alias */
+        $alias = config('wire-cloak.wire_prefix_alias');
+
+        if (! is_string($alias) || $alias === '') {
+            $this->components->twoColumnDetail('Wire prefix rename', 'Disabled');
+
+            return;
+        }
+
+        /** @var list<string> $jsFiles */
+        $jsFiles = File::glob($assetPath.'/*.js');
+
+        $renamed = 0;
+
+        foreach ($jsFiles as $file) {
+            $content = File::get($file);
+            $updated = str_replace(
+                ['wire:', 'wire\:'],
+                [$alias.':', $alias.'\:'],
+                $content,
+            );
+
+            if ($updated !== $content) {
+                File::put($file, $updated);
+                $renamed++;
+            }
+        }
+
+        $this->components->twoColumnDetail('Wire prefix rename', $renamed.' JS files updated → '.$alias.':');
     }
 
     private function randomiseManifestHash(string $assetPath): void

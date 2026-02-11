@@ -136,6 +136,111 @@ test('skips script config rename when alias is null', function () {
     expect($hasOriginal)->toBeTrue();
 });
 
+test('renames data attributes in js files', function () {
+    $this->artisan('livewire:publish', ['--assets' => true]);
+
+    // Confirm original data attributes exist before obfuscation.
+    $jsFiles = File::glob($this->assetPath.'/*.js');
+    $hadOriginal = false;
+
+    foreach ($jsFiles as $file) {
+        if (str_contains(File::get($file), 'data-csrf')) {
+            $hadOriginal = true;
+
+            break;
+        }
+    }
+
+    expect($hadOriginal)->toBeTrue();
+
+    $this->artisan('wire-cloak:obfuscate')
+        ->assertSuccessful();
+
+    // No JS file should contain original data attribute names.
+    foreach (File::glob($this->assetPath.'/*.js') as $file) {
+        $content = File::get($file);
+        expect($content)
+            ->not->toContain('"data-csrf"')
+            ->not->toContain('"data-update-uri"')
+            ->not->toContain('"data-module-url"')
+            ->toContain('data-wc-csrf')
+            ->toContain('data-wc-update-uri')
+            ->toContain('data-wc-module-url');
+    }
+});
+
+test('skips data attribute rename when prefix is null', function () {
+    config(['wire-cloak.data_attribute_prefix' => null]);
+
+    $this->artisan('livewire:publish', ['--assets' => true]);
+
+    $this->artisan('wire-cloak:obfuscate')
+        ->assertSuccessful();
+
+    $jsFiles = File::glob($this->assetPath.'/*.js');
+    $hasOriginal = false;
+
+    foreach ($jsFiles as $file) {
+        if (str_contains(File::get($file), 'data-csrf')) {
+            $hasOriginal = true;
+
+            break;
+        }
+    }
+
+    expect($hasOriginal)->toBeTrue();
+});
+
+test('renames wire: prefix in js files', function () {
+    $this->artisan('livewire:publish', ['--assets' => true]);
+
+    // Confirm the wire: prefix exists before obfuscation.
+    $jsFiles = File::glob($this->assetPath.'/*.js');
+    $hadOriginal = false;
+
+    foreach ($jsFiles as $file) {
+        if (str_contains(File::get($file), 'wire:')) {
+            $hadOriginal = true;
+
+            break;
+        }
+    }
+
+    expect($hadOriginal)->toBeTrue();
+
+    $this->artisan('wire-cloak:obfuscate')
+        ->assertSuccessful();
+
+    // No JS file should contain the original wire: prefix.
+    foreach (File::glob($this->assetPath.'/*.js') as $file) {
+        $content = File::get($file);
+        expect($content)->not->toContain('wire:');
+        expect($content)->toContain('wc:');
+    }
+});
+
+test('skips wire prefix rename when alias is null', function () {
+    config(['wire-cloak.wire_prefix_alias' => null]);
+
+    $this->artisan('livewire:publish', ['--assets' => true]);
+
+    $this->artisan('wire-cloak:obfuscate')
+        ->assertSuccessful();
+
+    $jsFiles = File::glob($this->assetPath.'/*.js');
+    $hasOriginal = false;
+
+    foreach ($jsFiles as $file) {
+        if (str_contains(File::get($file), 'wire:')) {
+            $hasOriginal = true;
+
+            break;
+        }
+    }
+
+    expect($hasOriginal)->toBeTrue();
+});
+
 test('is idempotent', function () {
     $this->artisan('wire-cloak:obfuscate')->assertSuccessful();
     $this->artisan('wire-cloak:obfuscate')->assertSuccessful();

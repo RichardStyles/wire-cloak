@@ -76,4 +76,36 @@ trait TransformsResponse
     {
         return str_replace('window.livewireScriptConfig', 'window.'.$alias, $html);
     }
+
+    /**
+     * Rename Livewire's data-* attributes on the script tag.
+     *
+     * Targets: data-csrf, data-update-uri, data-module-url, data-no-progress-bar.
+     * These are used by Livewire's JS for endpoint discovery and are identifiable
+     * markers. The obfuscate command applies the same rename to the published JS.
+     */
+    protected function renameDataAttributes(string $html, string $prefix): string
+    {
+        return str_replace(
+            ['data-csrf', 'data-update-uri', 'data-module-url', 'data-no-progress-bar'],
+            ["data-{$prefix}-csrf", "data-{$prefix}-update-uri", "data-{$prefix}-module-url", "data-{$prefix}-no-progress-bar"],
+            $html,
+        );
+    }
+
+    /**
+     * Rename the wire: attribute prefix to a non-descriptive alias.
+     *
+     * Replaces "wire:" in HTML attributes (wire:id, wire:snapshot, wire:click,
+     * etc.) and in CSS selectors where the colon is escaped (wire\:loading).
+     * The obfuscate command applies the same rename to published JS files.
+     */
+    protected function renameWirePrefix(string $html, string $alias): string
+    {
+        return str_replace(
+            ['wire:', 'wire\:'],
+            [$alias.':', $alias.'\:'],
+            $html,
+        );
+    }
 }

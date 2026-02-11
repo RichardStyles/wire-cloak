@@ -11,7 +11,7 @@ beforeEach(function () {
             .'<!-- Livewire Styles -->'
             .'<style>[wire\:loading]{display:none;}</style>'
             .'<!-- Livewire Scripts -->'
-            .'<script src="/livewire-abcd1234/livewire.min.js?id=cfc5c1ae" data-csrf="token" data-module-url="/livewire-abcd1234" data-update-uri="/livewire-abcd1234/update"></script>'
+            .'<script src="/livewire-abcd1234/livewire.min.js?id=cfc5c1ae" data-csrf="token" data-module-url="/livewire-abcd1234" data-update-uri="/livewire-abcd1234/update" data-no-progress-bar></script>'
             .'<script data-navigate-once="true">window.livewireScriptConfig = {"csrf":"token","uri":"/livewire-abcd1234/update"};</script>'
             .'<script>
                 console.warn(\'Livewire: The published Livewire assets are out of date\n See: https://livewire.laravel.com/docs/installation\')
@@ -41,6 +41,10 @@ test('strips build hash from script src', function () {
 });
 
 test('strips wire:name attributes', function () {
+    config([
+        'wire-cloak.wire_prefix_alias' => null,
+    ]);
+
     $response = $this->get('/test-page');
 
     $content = $response->getContent();
@@ -56,17 +60,17 @@ test('strips console warning scripts', function () {
     expect($content)->not->toContain("console.warn('Livewire:");
 });
 
-test('preserves functional attributes', function () {
+test('preserves functional attributes with renames applied', function () {
     $response = $this->get('/test-page');
 
     $content = $response->getContent();
     expect($content)
-        ->toContain('wire:id="abc123"')
-        ->toContain('data-csrf="token"')
-        ->toContain('data-module-url=')
-        ->toContain('data-update-uri=')
-        ->toContain('wire:snapshot=')
-        ->toContain('wire:effects=');
+        ->toContain('wc:id="abc123"')
+        ->toContain('data-wc-csrf="token"')
+        ->toContain('data-wc-module-url=')
+        ->toContain('data-wc-update-uri=')
+        ->toContain('wc:snapshot=')
+        ->toContain('wc:effects=');
 });
 
 test('renames livewireScriptConfig to configured alias', function () {
@@ -87,6 +91,68 @@ test('does not rename livewireScriptConfig when alias is null', function () {
     expect($content)->toContain('window.livewireScriptConfig');
 });
 
+test('renames data attributes with configured prefix', function () {
+    $response = $this->get('/test-page');
+
+    $content = $response->getContent();
+    expect($content)
+        ->toContain('data-wc-csrf="token"')
+        ->toContain('data-wc-module-url="/livewire-abcd1234"')
+        ->toContain('data-wc-update-uri="/livewire-abcd1234/update"')
+        ->toContain('data-wc-no-progress-bar')
+        ->not->toContain('data-csrf="token"')
+        ->not->toContain('data-module-url="/livewire-abcd1234"')
+        ->not->toContain('data-update-uri="/livewire-abcd1234/update"');
+});
+
+test('does not rename data attributes when prefix is null', function () {
+    config(['wire-cloak.data_attribute_prefix' => null]);
+
+    $response = $this->get('/test-page');
+
+    $content = $response->getContent();
+    expect($content)
+        ->toContain('data-csrf="token"')
+        ->toContain('data-module-url=')
+        ->toContain('data-update-uri=');
+});
+
+test('renames wire: prefix in attributes and css selectors', function () {
+    $response = $this->get('/test-page');
+
+    $content = $response->getContent();
+    expect($content)
+        ->toContain('wc:id="abc123"')
+        ->toContain('wc:snapshot=')
+        ->toContain('wc:effects=')
+        ->toContain('[wc\:loading]')
+        ->not->toContain('wire:id=')
+        ->not->toContain('wire:snapshot=')
+        ->not->toContain('wire:effects=')
+        ->not->toContain('[wire\:loading]');
+});
+
+test('does not rename wire: prefix when alias is null', function () {
+    config(['wire-cloak.wire_prefix_alias' => null]);
+
+    $response = $this->get('/test-page');
+
+    $content = $response->getContent();
+    expect($content)
+        ->toContain('wire:id="abc123"')
+        ->toContain('wire:snapshot=')
+        ->not->toContain('wc:id=');
+});
+
+test('wire:name is stripped before wire prefix rename', function () {
+    $response = $this->get('/test-page');
+
+    $content = $response->getContent();
+    expect($content)
+        ->not->toContain('wire:name=')
+        ->not->toContain('wc:name="counter"');
+});
+
 test('does nothing when all features disabled', function () {
     config([
         'wire-cloak.strip_html_comments' => false,
@@ -94,6 +160,8 @@ test('does nothing when all features disabled', function () {
         'wire-cloak.strip_wire_name' => false,
         'wire-cloak.strip_console_warnings' => false,
         'wire-cloak.script_config_alias' => null,
+        'wire-cloak.data_attribute_prefix' => null,
+        'wire-cloak.wire_prefix_alias' => null,
     ]);
 
     $response = $this->get('/test-page');
@@ -103,7 +171,9 @@ test('does nothing when all features disabled', function () {
         ->toContain('<!-- Livewire Scripts -->')
         ->toContain('?id=cfc5c1ae')
         ->toContain('wire:name="counter"')
-        ->toContain('window.livewireScriptConfig');
+        ->toContain('window.livewireScriptConfig')
+        ->toContain('data-csrf="token"')
+        ->toContain('wire:id="abc123"');
 });
 
 test('individual config toggles work independently', function () {
@@ -112,6 +182,8 @@ test('individual config toggles work independently', function () {
         'wire-cloak.strip_build_hash' => false,
         'wire-cloak.strip_wire_name' => false,
         'wire-cloak.strip_console_warnings' => false,
+        'wire-cloak.data_attribute_prefix' => null,
+        'wire-cloak.wire_prefix_alias' => null,
     ]);
 
     $response = $this->get('/test-page');

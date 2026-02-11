@@ -59,6 +59,18 @@ class CloakLivewireFingerprints
             $content = $this->renameScriptConfig($content, $alias);
         }
 
+        $dataPrefix = config('wire-cloak.data_attribute_prefix');
+
+        if (is_string($dataPrefix) && $dataPrefix !== '') {
+            $content = $this->renameDataAttributes($content, $dataPrefix);
+        }
+
+        $wireAlias = config('wire-cloak.wire_prefix_alias');
+
+        if (is_string($wireAlias) && $wireAlias !== '') {
+            $content = $this->renameWirePrefix($content, $wireAlias);
+        }
+
         $response->setContent($content);
 
         $response->headers->remove('Content-Length');
