@@ -29,10 +29,7 @@ class ObfuscateCommand extends Command
         }
 
         $this->deleteSourceMaps($assetPath);
-        $this->stripSourceMapReferences($assetPath);
-        $this->renameScriptConfig($assetPath);
-        $this->renameDataAttributes($assetPath);
-        $this->renameWirePrefix($assetPath);
+        $this->transformJsFiles($assetPath);
         $this->randomiseManifestHash($assetPath);
 
         $this->newLine();
@@ -74,118 +71,135 @@ class ObfuscateCommand extends Command
         $this->components->twoColumnDetail('Source maps', count($maps).' deleted');
     }
 
-    private function stripSourceMapReferences(string $assetPath): void
+    /**
+     * Apply all JS file transformations in a single loop.
+     *
+     * Each file is read once, all applicable transforms are applied
+     * in sequence, and the result is written once. This reduces file
+     * I/O from 5 read/write cycles per file to 1.
+     *
+     * Order matters — renameScriptConfig must run before scrubLivewireIdentifiers
+     * so "livewireScriptConfig" is replaced precisely before the broad
+     * "livewire" sweep catches remaining identifiers.
+     */
+    private function transformJsFiles(string $assetPath): void
     {
         /** @var list<string> $jsFiles */
         $jsFiles = File::glob($assetPath.'/*.js');
 
-        $stripped = 0;
+        /** @var string|null $scriptConfigAlias */
+        $scriptConfigAlias = config('wire-cloak.script_config_alias');
+
+        /** @var string|null $dataPrefix */
+        $dataPrefix = config('wire-cloak.data_attribute_prefix');
+
+        /** @var string|null $wireAlias */
+        $wireAlias = config('wire-cloak.wire_prefix_alias');
+
+        /** @var string|null $livewireAlias */
+        $livewireAlias = config('wire-cloak.livewire_alias');
+
+        $counts = [
+            'source_maps' => 0,
+            'script_config' => 0,
+            'data_attrs' => 0,
+            'wire_prefix' => 0,
+            'identifiers' => 0,
+        ];
 
         foreach ($jsFiles as $file) {
             $content = File::get($file);
-            $updated = (string) preg_replace('/\/\/# sourceMappingURL=.*$/m', '', $content);
+            $original = $content;
 
-            if ($updated !== $content) {
-                File::put($file, rtrim($updated)."\n");
-                $stripped++;
+            // 1. Strip sourceMappingURL references.
+            $stripped = (string) preg_replace('/\/\/# sourceMappingURL=.*$/m', '', $content);
+
+            if ($stripped !== $content) {
+                $content = rtrim($stripped)."\n";
+                $counts['source_maps']++;
+            }
+
+            // 2. Rename livewireScriptConfig (must precede broad livewire scrub).
+            if (is_string($scriptConfigAlias) && $scriptConfigAlias !== '') {
+                $replaced = str_replace('livewireScriptConfig', $scriptConfigAlias, $content);
+
+                if ($replaced !== $content) {
+                    $content = $replaced;
+                    $counts['script_config']++;
+                }
+            }
+
+            // 3. Rename data attributes.
+            if (is_string($dataPrefix) && $dataPrefix !== '') {
+                $replaced = str_replace(
+                    ['data-csrf', 'data-update-uri', 'data-module-url', 'data-no-progress-bar'],
+                    ["data-{$dataPrefix}-csrf", "data-{$dataPrefix}-update-uri", "data-{$dataPrefix}-module-url", "data-{$dataPrefix}-no-progress-bar"],
+                    $content,
+                );
+
+                if ($replaced !== $content) {
+                    $content = $replaced;
+                    $counts['data_attrs']++;
+                }
+            }
+
+            // 4. Rename wire: prefix.
+            if (is_string($wireAlias) && $wireAlias !== '') {
+                $replaced = str_replace(
+                    ['wire:', 'wire\:'],
+                    [$wireAlias.':', $wireAlias.'\:'],
+                    $content,
+                );
+
+                if ($replaced !== $content) {
+                    $content = $replaced;
+                    $counts['wire_prefix']++;
+                }
+            }
+
+            // 5. Scrub remaining livewire/Livewire identifiers (broad sweep, runs last).
+            if (is_string($livewireAlias) && $livewireAlias !== '') {
+                $replaced = str_replace(
+                    ['Livewire', 'livewire'],
+                    [ucfirst($livewireAlias), $livewireAlias],
+                    $content,
+                );
+
+                if ($replaced !== $content) {
+                    $content = $replaced;
+                    $counts['identifiers']++;
+                }
+            }
+
+            // Single write per file.
+            if ($content !== $original) {
+                File::put($file, $content);
             }
         }
 
-        $this->components->twoColumnDetail('Source map references', $stripped.' stripped from JS files');
+        $this->components->twoColumnDetail('Source map references', $counts['source_maps'].' stripped');
+
+        $this->reportStep('Script config rename', $scriptConfigAlias, $counts['script_config'], fn () => 'window.'.$scriptConfigAlias);
+
+        $this->reportStep('Data attribute rename', $dataPrefix, $counts['data_attrs'], fn () => 'data-'.$dataPrefix.'-*');
+
+        $this->reportStep('Wire prefix rename', $wireAlias, $counts['wire_prefix'], fn () => $wireAlias.':');
+
+        $this->reportStep('Livewire identifiers', $livewireAlias, $counts['identifiers'], fn () => $livewireAlias.'/'.ucfirst((string) $livewireAlias));
     }
 
-    private function renameScriptConfig(string $assetPath): void
+    /**
+     * @param  \Closure(): string  $labelFn
+     */
+    private function reportStep(string $name, mixed $alias, int $count, \Closure $labelFn): void
     {
-        /** @var string|null $alias */
-        $alias = config('wire-cloak.script_config_alias');
-
         if (! is_string($alias) || $alias === '') {
-            $this->components->twoColumnDetail('Script config rename', 'Disabled');
+            $this->components->twoColumnDetail($name, 'Disabled');
 
             return;
         }
 
-        /** @var list<string> $jsFiles */
-        $jsFiles = File::glob($assetPath.'/*.js');
-
-        $renamed = 0;
-
-        foreach ($jsFiles as $file) {
-            $content = File::get($file);
-            $updated = str_replace('livewireScriptConfig', $alias, $content);
-
-            if ($updated !== $content) {
-                File::put($file, $updated);
-                $renamed++;
-            }
-        }
-
-        $this->components->twoColumnDetail('Script config rename', $renamed.' JS files updated → window.'.$alias);
-    }
-
-    private function renameDataAttributes(string $assetPath): void
-    {
-        /** @var string|null $prefix */
-        $prefix = config('wire-cloak.data_attribute_prefix');
-
-        if (! is_string($prefix) || $prefix === '') {
-            $this->components->twoColumnDetail('Data attribute rename', 'Disabled');
-
-            return;
-        }
-
-        $search = ['data-csrf', 'data-update-uri', 'data-module-url', 'data-no-progress-bar'];
-        $replace = ["data-{$prefix}-csrf", "data-{$prefix}-update-uri", "data-{$prefix}-module-url", "data-{$prefix}-no-progress-bar"];
-
-        /** @var list<string> $jsFiles */
-        $jsFiles = File::glob($assetPath.'/*.js');
-
-        $renamed = 0;
-
-        foreach ($jsFiles as $file) {
-            $content = File::get($file);
-            $updated = str_replace($search, $replace, $content);
-
-            if ($updated !== $content) {
-                File::put($file, $updated);
-                $renamed++;
-            }
-        }
-
-        $this->components->twoColumnDetail('Data attribute rename', $renamed.' JS files updated → data-'.$prefix.'-*');
-    }
-
-    private function renameWirePrefix(string $assetPath): void
-    {
-        /** @var string|null $alias */
-        $alias = config('wire-cloak.wire_prefix_alias');
-
-        if (! is_string($alias) || $alias === '') {
-            $this->components->twoColumnDetail('Wire prefix rename', 'Disabled');
-
-            return;
-        }
-
-        /** @var list<string> $jsFiles */
-        $jsFiles = File::glob($assetPath.'/*.js');
-
-        $renamed = 0;
-
-        foreach ($jsFiles as $file) {
-            $content = File::get($file);
-            $updated = str_replace(
-                ['wire:', 'wire\:'],
-                [$alias.':', $alias.'\:'],
-                $content,
-            );
-
-            if ($updated !== $content) {
-                File::put($file, $updated);
-                $renamed++;
-            }
-        }
-
-        $this->components->twoColumnDetail('Wire prefix rename', $renamed.' JS files updated → '.$alias.':');
+        $this->components->twoColumnDetail($name, $count.' JS files updated → '.$labelFn());
     }
 
     private function checkComposerPostUpdateHook(): void

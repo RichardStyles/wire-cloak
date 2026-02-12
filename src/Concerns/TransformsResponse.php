@@ -7,63 +7,48 @@ namespace RichardStyles\WireCloak\Concerns;
 trait TransformsResponse
 {
     /**
-     * Strip Livewire HTML comments.
+     * Strip identifiable patterns from HTML in a single regex pass.
      *
-     * Targets: <!-- Livewire Scripts --> and <!-- Livewire Styles -->
+     * Combines four patterns into one preg_replace call to minimise
+     * passes over the HTML string:
+     *
+     * 1. <!-- Livewire Scripts/Styles --> comments
+     * 2. ?id=XXXXXXXX build hash from script src URLs
+     * 3. wire:name="..." attributes
+     * 4. <script>console.warn('Livewire: ...')</script> blocks
+     *
+     * @param  array{strip_html_comments: bool, strip_build_hash: bool, strip_wire_name: bool, strip_console_warnings: bool}  $toggles
      */
-    protected function stripHtmlComments(string $html): string
+    protected function stripFingerprints(string $html, array $toggles): string
     {
-        return (string) preg_replace(
-            '/<!--\s*Livewire\s+(Scripts|Styles)\s*-->\s*\n?/',
-            '',
-            $html,
-        );
-    }
+        $patterns = [];
+        $replacements = [];
 
-    /**
-     * Strip the build manifest hash from Livewire script URLs.
-     *
-     * Targets: ?id=cfc5c1ae or &id=cfc5c1ae in script src attributes
-     * pointing to a livewire path. The hash is deterministic per release
-     * and can be mapped back to a specific Livewire version.
-     */
-    protected function stripBuildHash(string $html): string
-    {
-        return (string) preg_replace(
-            '/(<script[^>]+src="[^"]*livewire[^"]*)[?&]id=[a-f0-9]+"/',
-            '$1"',
-            $html,
-        );
-    }
+        if ($toggles['strip_html_comments']) {
+            $patterns[] = '/<!--\s*Livewire\s+(Scripts|Styles)\s*-->\s*\n?/';
+            $replacements[] = '';
+        }
 
-    /**
-     * Strip wire:name attributes from component root elements.
-     *
-     * These leak component class names (e.g. "pages.settings.profile")
-     * but are NOT used by Livewire's JavaScript runtime.
-     */
-    protected function stripWireName(string $html): string
-    {
-        return (string) preg_replace(
-            '/\s+wire:name="[^"]*"/',
-            '',
-            $html,
-        );
-    }
+        if ($toggles['strip_build_hash']) {
+            $patterns[] = '/(<script[^>]+src="[^"]*livewire[^"]*)[?&]id=[a-f0-9]+"/';
+            $replacements[] = '$1"';
+        }
 
-    /**
-     * Strip Livewire console.warn script tags.
-     *
-     * Targets: <script>console.warn('Livewire: ...')</script> blocks
-     * injected when published assets are out of date.
-     */
-    protected function stripConsoleWarnings(string $html): string
-    {
-        return (string) preg_replace(
-            '/<script[^>]*>\s*\n?\s*console\.warn\([\'"]Livewire:.*?<\/script>\s*\n?/s',
-            '',
-            $html,
-        );
+        if ($toggles['strip_wire_name']) {
+            $patterns[] = '/\s+wire:name="[^"]*"/';
+            $replacements[] = '';
+        }
+
+        if ($toggles['strip_console_warnings']) {
+            $patterns[] = '/<script[^>]*>\s*\n?\s*console\.warn\([\'"]Livewire:.*?<\/script>\s*\n?/s';
+            $replacements[] = '';
+        }
+
+        if ($patterns === []) {
+            return $html;
+        }
+
+        return (string) preg_replace($patterns, $replacements, $html);
     }
 
     /**
@@ -105,6 +90,22 @@ trait TransformsResponse
         return str_replace(
             ['wire:', 'wire\:'],
             [$alias.':', $alias.'\:'],
+            $html,
+        );
+    }
+
+    /**
+     * Rename remaining "livewire" / "Livewire" identifiers in HTML output.
+     *
+     * Targets PHP-emitted strings: data-livewire-style, --livewire-progress-bar-color,
+     * #livewire-error, and any remaining "Livewire" / "livewire" text in inline
+     * scripts or style blocks.
+     */
+    protected function renameLivewireIdentifiers(string $html, string $alias): string
+    {
+        return str_replace(
+            ['Livewire', 'livewire'],
+            [ucfirst($alias), $alias],
             $html,
         );
     }

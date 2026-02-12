@@ -114,7 +114,10 @@ test('renames livewireScriptConfig in js files', function () {
 });
 
 test('skips script config rename when alias is null', function () {
-    config(['wire-cloak.script_config_alias' => null]);
+    config([
+        'wire-cloak.script_config_alias' => null,
+        'wire-cloak.livewire_alias' => null,
+    ]);
 
     $this->artisan('livewire:publish', ['--assets' => true]);
 
@@ -339,6 +342,57 @@ test('adds to empty post-update-cmd when composer.json has no scripts section', 
     expect($composer['scripts']['post-update-cmd'])->toContain('@php artisan wire-cloak:obfuscate --ansi');
 
     File::delete(base_path('composer.json'));
+});
+
+test('scrubs livewire identifiers from js files', function () {
+    $this->artisan('livewire:publish', ['--assets' => true]);
+
+    // Confirm "livewire" exists before obfuscation.
+    $jsFiles = File::glob($this->assetPath.'/*.js');
+    $hadOriginal = false;
+
+    foreach ($jsFiles as $file) {
+        if (stripos(File::get($file), 'livewire') !== false) {
+            $hadOriginal = true;
+
+            break;
+        }
+    }
+
+    expect($hadOriginal)->toBeTrue();
+
+    $this->artisan('wire-cloak:obfuscate')
+        ->assertSuccessful();
+
+    // No JS file should contain "livewire" or "Livewire" (case-insensitive).
+    foreach (File::glob($this->assetPath.'/*.js') as $file) {
+        $content = File::get($file);
+        expect(stripos($content, 'livewire'))->toBeFalse(
+            'Found "livewire" in '.basename($file),
+        );
+    }
+});
+
+test('skips livewire identifier scrub when alias is null', function () {
+    config(['wire-cloak.livewire_alias' => null]);
+
+    $this->artisan('livewire:publish', ['--assets' => true]);
+
+    $this->artisan('wire-cloak:obfuscate')
+        ->assertSuccessful();
+
+    $jsFiles = File::glob($this->assetPath.'/*.js');
+    $hasOriginal = false;
+
+    foreach ($jsFiles as $file) {
+        if (stripos(File::get($file), 'livewire') !== false) {
+            $hasOriginal = true;
+
+            break;
+        }
+    }
+
+    expect($hasOriginal)->toBeTrue();
 });
 
 test('is idempotent', function () {

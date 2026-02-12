@@ -119,4 +119,27 @@ return [
 
     'wire_prefix_alias' => 'wc',
 
+    /*
+    |--------------------------------------------------------------------------
+    | Scrub Livewire Identifiers
+    |--------------------------------------------------------------------------
+    |
+    | Livewire's JS and HTML contain dozens of identifiable strings — event
+    | names (livewire:init), DOM properties (__livewire), CSS variables
+    | (--livewire-progress-bar-color), the window.Livewire global, error
+    | messages, and more.
+    |
+    | Setting an alias here replaces "livewire" and "Livewire" throughout
+    | the published JS files (obfuscate command) and the HTML response
+    | (middleware) so a simple "contains livewire" check returns nothing.
+    |
+    | HTTP headers (X-Livewire) are NOT renamed — they only appear on POST
+    | requests to the update endpoint, invisible to passive GET scanners.
+    |
+    | Set to null to disable.
+    |
+    */
+
+    'livewire_alias' => 'wc',
+
 ];

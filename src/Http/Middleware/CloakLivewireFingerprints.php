@@ -19,7 +19,10 @@ class CloakLivewireFingerprints
         /** @var Response $response */
         $response = $next($request);
 
-        if (! config('wire-cloak.enabled', true)) {
+        /** @var array{enabled?: bool, strip_html_comments?: bool, strip_build_hash?: bool, strip_wire_name?: bool, strip_console_warnings?: bool, script_config_alias?: string|null, data_attribute_prefix?: string|null, wire_prefix_alias?: string|null, livewire_alias?: string|null} $cfg */
+        $cfg = config('wire-cloak');
+
+        if (! ($cfg['enabled'] ?? true)) {
             return $response;
         }
 
@@ -37,38 +40,36 @@ class CloakLivewireFingerprints
             return $response;
         }
 
-        if (config('wire-cloak.strip_html_comments', true)) {
-            $content = $this->stripHtmlComments($content);
-        }
+        // Single regex pass for all strip operations.
+        $content = $this->stripFingerprints($content, [
+            'strip_html_comments' => $cfg['strip_html_comments'] ?? true,
+            'strip_build_hash' => $cfg['strip_build_hash'] ?? true,
+            'strip_wire_name' => $cfg['strip_wire_name'] ?? true,
+            'strip_console_warnings' => $cfg['strip_console_warnings'] ?? true,
+        ]);
 
-        if (config('wire-cloak.strip_build_hash', true)) {
-            $content = $this->stripBuildHash($content);
-        }
-
-        if (config('wire-cloak.strip_wire_name', true)) {
-            $content = $this->stripWireName($content);
-        }
-
-        if (config('wire-cloak.strip_console_warnings', true)) {
-            $content = $this->stripConsoleWarnings($content);
-        }
-
-        $alias = config('wire-cloak.script_config_alias');
+        $alias = $cfg['script_config_alias'] ?? null;
 
         if (is_string($alias) && $alias !== '') {
             $content = $this->renameScriptConfig($content, $alias);
         }
 
-        $dataPrefix = config('wire-cloak.data_attribute_prefix');
+        $dataPrefix = $cfg['data_attribute_prefix'] ?? null;
 
         if (is_string($dataPrefix) && $dataPrefix !== '') {
             $content = $this->renameDataAttributes($content, $dataPrefix);
         }
 
-        $wireAlias = config('wire-cloak.wire_prefix_alias');
+        $wireAlias = $cfg['wire_prefix_alias'] ?? null;
 
         if (is_string($wireAlias) && $wireAlias !== '') {
             $content = $this->renameWirePrefix($content, $wireAlias);
+        }
+
+        $livewireAlias = $cfg['livewire_alias'] ?? null;
+
+        if (is_string($livewireAlias) && $livewireAlias !== '') {
+            $content = $this->renameLivewireIdentifiers($content, $livewireAlias);
         }
 
         $response->setContent($content);
