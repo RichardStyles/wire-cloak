@@ -241,6 +241,106 @@ test('skips wire prefix rename when alias is null', function () {
     expect($hasOriginal)->toBeTrue();
 });
 
+test('offers to add wire-cloak:obfuscate to composer post-update-cmd when missing', function () {
+    File::put(base_path('composer.json'), json_encode([
+        'scripts' => [
+            'post-update-cmd' => [
+                '@php artisan vendor:publish --tag=laravel-assets --ansi --force',
+            ],
+        ],
+    ]));
+
+    $this->artisan('wire-cloak:obfuscate')
+        ->assertSuccessful()
+        ->expectsOutputToContain('wire-cloak:obfuscate is not in your composer.json')
+        ->expectsConfirmation('Add it automatically?', 'yes');
+
+    /** @var array{scripts: array{post-update-cmd: list<string>}} $composer */
+    $composer = json_decode(File::get(base_path('composer.json')), true);
+
+    expect($composer['scripts']['post-update-cmd'])->toContain('@php artisan wire-cloak:obfuscate --ansi');
+
+    File::delete(base_path('composer.json'));
+});
+
+test('does not modify composer.json when user declines', function () {
+    File::put(base_path('composer.json'), json_encode([
+        'scripts' => [
+            'post-update-cmd' => [
+                '@php artisan vendor:publish --tag=laravel-assets --ansi --force',
+            ],
+        ],
+    ]));
+
+    $this->artisan('wire-cloak:obfuscate')
+        ->assertSuccessful()
+        ->expectsConfirmation('Add it automatically?', 'no');
+
+    /** @var array{scripts: array{post-update-cmd: list<string>}} $composer */
+    $composer = json_decode(File::get(base_path('composer.json')), true);
+
+    expect($composer['scripts']['post-update-cmd'])->not->toContain('@php artisan wire-cloak:obfuscate --ansi');
+
+    File::delete(base_path('composer.json'));
+});
+
+test('preserves existing post-update-cmd scripts when adding', function () {
+    $existing = '@php artisan vendor:publish --tag=laravel-assets --ansi --force';
+
+    File::put(base_path('composer.json'), json_encode([
+        'scripts' => [
+            'post-update-cmd' => [$existing],
+        ],
+    ]));
+
+    $this->artisan('wire-cloak:obfuscate')
+        ->assertSuccessful()
+        ->expectsConfirmation('Add it automatically?', 'yes');
+
+    /** @var array{scripts: array{post-update-cmd: list<string>}} $composer */
+    $composer = json_decode(File::get(base_path('composer.json')), true);
+
+    expect($composer['scripts']['post-update-cmd'])
+        ->toContain($existing)
+        ->toContain('@php artisan wire-cloak:obfuscate --ansi');
+
+    File::delete(base_path('composer.json'));
+});
+
+test('does not prompt when wire-cloak:obfuscate is already in composer post-update-cmd', function () {
+    File::put(base_path('composer.json'), json_encode([
+        'scripts' => [
+            'post-update-cmd' => [
+                '@php artisan vendor:publish --tag=laravel-assets --ansi --force',
+                '@php artisan wire-cloak:obfuscate --ansi',
+            ],
+        ],
+    ]));
+
+    $this->artisan('wire-cloak:obfuscate')
+        ->assertSuccessful()
+        ->doesntExpectOutputToContain('wire-cloak:obfuscate is not in your composer.json');
+
+    File::delete(base_path('composer.json'));
+});
+
+test('adds to empty post-update-cmd when composer.json has no scripts section', function () {
+    File::put(base_path('composer.json'), json_encode([
+        'name' => 'test/app',
+    ]));
+
+    $this->artisan('wire-cloak:obfuscate')
+        ->assertSuccessful()
+        ->expectsConfirmation('Add it automatically?', 'yes');
+
+    /** @var array{scripts: array{post-update-cmd: list<string>}} $composer */
+    $composer = json_decode(File::get(base_path('composer.json')), true);
+
+    expect($composer['scripts']['post-update-cmd'])->toContain('@php artisan wire-cloak:obfuscate --ansi');
+
+    File::delete(base_path('composer.json'));
+});
+
 test('is idempotent', function () {
     $this->artisan('wire-cloak:obfuscate')->assertSuccessful();
     $this->artisan('wire-cloak:obfuscate')->assertSuccessful();

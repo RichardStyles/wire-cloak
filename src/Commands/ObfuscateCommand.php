@@ -38,6 +38,8 @@ class ObfuscateCommand extends Command
         $this->newLine();
         $this->components->info('Livewire assets obfuscated successfully.');
 
+        $this->checkComposerPostUpdateHook();
+
         return self::SUCCESS;
     }
 
@@ -184,6 +186,45 @@ class ObfuscateCommand extends Command
         }
 
         $this->components->twoColumnDetail('Wire prefix rename', $renamed.' JS files updated → '.$alias.':');
+    }
+
+    private function checkComposerPostUpdateHook(): void
+    {
+        $composerPath = base_path('composer.json');
+
+        if (! file_exists($composerPath)) {
+            return;
+        }
+
+        /** @var array{scripts?: array{post-update-cmd?: list<string>}} $composer */
+        $composer = json_decode((string) file_get_contents($composerPath), true);
+
+        $postUpdateScripts = $composer['scripts']['post-update-cmd'] ?? [];
+
+        foreach ($postUpdateScripts as $script) {
+            if (str_contains($script, 'wire-cloak:obfuscate')) {
+                return;
+            }
+        }
+
+        $this->newLine();
+        $this->components->warn('wire-cloak:obfuscate is not in your composer.json post-update-cmd scripts.');
+
+        if (! $this->components->confirm('Add it automatically?', true)) {
+            return;
+        }
+
+        $composer['scripts']['post-update-cmd'] = [
+            ...$postUpdateScripts,
+            '@php artisan wire-cloak:obfuscate --ansi',
+        ];
+
+        file_put_contents(
+            $composerPath,
+            json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n",
+        );
+
+        $this->components->info('Added wire-cloak:obfuscate to composer.json post-update-cmd.');
     }
 
     private function randomiseManifestHash(string $assetPath): void
