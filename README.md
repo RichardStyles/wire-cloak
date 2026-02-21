@@ -1,5 +1,7 @@
 # Wire Cloak
 
+It should be obvious, this is NOT subitable for production. This was just an exercise in possibilities. Security through obscurity is not they way!
+
 A Laravel package that reduces Livewire's passive fingerprinting surface. Strips identifiable markers from HTML responses that scanners use to detect Livewire installations and determine their version.
 
 Companion to [Wire Shield](https://github.com/richardstyles/wire-shield) — Wire Shield detects active exploit payloads, Wire Cloak hardens against passive reconnaissance.
